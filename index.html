@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reconocimiento con Cámara</title>
+    <style>
+        /* Estilo base para que el diseño sea responsivo */
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2rem;
+        }
+        video {
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            width: 100%;
+            max-width: 300px;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        #label-container {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #333;
+            text-align: center;
+            word-wrap: break-word;
+            max-width: 100%;
+        }
+
+        /* Estilos para pantallas pequeñas */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+            video {
+                max-width: 100%;
+            }
+            button {
+                font-size: 16px;
+                max-width: 100%;
+            }
+            #label-container {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Reconocimiento con Cámara</h1>
+    <video id="video" autoplay playsinline></video>
+    <button onclick="init()">Iniciar Reconocimiento</button>
+    <div id="label-container"></div>
+
+    <!-- Cargar TensorFlow.js y Teachable Machine -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script type="text/javascript">
+        // URL de tu modelo entrenado en Teachable Machine
+        const URL = "https://teachablemachine.withgoogle.com/models/Qu9Qnf-5u/";
+
+        let model, maxPredictions;
+        const videoElement = document.getElementById("video");
+
+        // Función para inicializar el modelo y la cámara
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            // Cargar el modelo y los metadatos
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            // Detectar si es móvil o computadora para usar la cámara correspondiente
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const facingMode = isMobile ? { exact: "environment" } : "user"; // Trasera en móvil, frontal en web
+
+            // Configuración de la cámara
+            const constraints = {
+                video: {
+                    facingMode: facingMode,
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            };
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoElement.srcObject = stream;
+                videoElement.play();
+                window.requestAnimationFrame(loop);
+            } catch (err) {
+                console.error("Error accediendo a la cámara: ", err);
+                alert("No se pudo acceder a la cámara.");
+            }
+        }
+
+        // Bucle para actualizar la cámara y hacer predicciones
+        async function loop() {
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        // Realizar predicciones con el modelo de Teachable Machine
+        async function predict() {
+            const prediction = await model.predict(videoElement);
+
+            // Mostrar solo las predicciones con 100% de certeza
+            const labelContainer = document.getElementById("label-container");
+            labelContainer.innerHTML = "";
+            for (let i = 0; i < maxPredictions; i++) {
+                if (prediction[i].probability.toFixed(2) == 1.00) {
+                    const classPrediction =
+                        prediction[i].className + ": " + (prediction[i].probability * 100).toFixed(2) + "%";
+                    labelContainer.innerHTML = classPrediction;
+                }
+            }
+        }
+    </script>
+
+</body>
+</html>
